@@ -1,0 +1,5 @@
+{
+  "name": "UltraTrail AI Coach",
+  "description": "An AI-powered coaching app for 175km trail races, featuring dynamic training plans, nutrition tracking, and Strava integration analysis.",
+  "requestFramePermissions": []
+}
