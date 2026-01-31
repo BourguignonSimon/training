@@ -36,7 +36,7 @@ const NavItem = ({
 
 export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate }) => {
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden select-none">
+    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden">
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex flex-col w-64 border-r border-slate-800 bg-slate-900 p-6">
         <div className="flex items-center space-x-2 mb-10">
@@ -63,53 +63,24 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigat
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto relative flex flex-col">
-        {/* Mobile Header with Safe Area support */}
-        <header className="md:hidden flex items-center justify-between p-4 pt-[env(safe-area-inset-top,1rem)] border-b border-slate-800 bg-slate-900 sticky top-0 z-20">
+      <main className="flex-1 overflow-auto relative">
+        <header className="md:hidden flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900 sticky top-0 z-20">
             <div className="flex items-center space-x-2">
               <Activity className="text-trail-500" size={24} />
-              <span className="font-bold tracking-tight">UltraCoach</span>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
-              <span className="text-xs font-bold text-trail-400">TR</span>
+              <span className="font-bold">UltraCoach</span>
             </div>
         </header>
         
-        {/* Scrollable Container */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 max-w-7xl mx-auto w-full pb-[calc(80px+env(safe-area-inset-bottom,0px))] md:pb-8">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
           {children}
         </div>
 
-        {/* Mobile Bottom Nav with Safe Area support */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-2 pb-[env(safe-area-inset-bottom,0.5rem)] flex justify-around z-30">
-          <button 
-            onClick={() => onNavigate('dashboard')} 
-            className={`flex flex-col items-center p-2 rounded-lg transition-colors ${currentView === 'dashboard' ? 'text-trail-500' : 'text-slate-500'}`}
-          >
-            <LayoutDashboard size={22}/>
-            <span className="text-[10px] mt-1 font-medium">Home</span>
-          </button>
-          <button 
-            onClick={() => onNavigate('training')} 
-            className={`flex flex-col items-center p-2 rounded-lg transition-colors ${currentView === 'training' ? 'text-trail-500' : 'text-slate-500'}`}
-          >
-            <Calendar size={22}/>
-            <span className="text-[10px] mt-1 font-medium">Plan</span>
-          </button>
-          <button 
-            onClick={() => onNavigate('nutrition')} 
-            className={`flex flex-col items-center p-2 rounded-lg transition-colors ${currentView === 'nutrition' ? 'text-trail-500' : 'text-slate-500'}`}
-          >
-            <Utensils size={22}/>
-            <span className="text-[10px] mt-1 font-medium">Eats</span>
-          </button>
-          <button 
-            onClick={() => onNavigate('settings')} 
-            className={`flex flex-col items-center p-2 rounded-lg transition-colors ${currentView === 'settings' ? 'text-trail-500' : 'text-slate-500'}`}
-          >
-            <Settings size={22}/>
-            <span className="text-[10px] mt-1 font-medium">More</span>
-          </button>
+        {/* Mobile Bottom Nav */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 p-2 flex justify-around z-30">
+          <button onClick={() => onNavigate('dashboard')} className={`p-3 rounded-lg ${currentView === 'dashboard' ? 'text-trail-500' : 'text-slate-500'}`}><LayoutDashboard size={24}/></button>
+          <button onClick={() => onNavigate('training')} className={`p-3 rounded-lg ${currentView === 'training' ? 'text-trail-500' : 'text-slate-500'}`}><Calendar size={24}/></button>
+          <button onClick={() => onNavigate('nutrition')} className={`p-3 rounded-lg ${currentView === 'nutrition' ? 'text-trail-500' : 'text-slate-500'}`}><Utensils size={24}/></button>
+          <button onClick={() => onNavigate('settings')} className={`p-3 rounded-lg ${currentView === 'settings' ? 'text-trail-500' : 'text-slate-500'}`}><Settings size={24}/></button>
         </div>
       </main>
     </div>
