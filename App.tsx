@@ -4,7 +4,7 @@ import { Dashboard } from './components/Dashboard';
 import { TrainingView } from './components/TrainingView';
 import { NutritionView } from './components/NutritionView';
 import { SettingsView } from './components/SettingsView';
-import { ViewState, WeeklyPlan, NutritionDay, Activity, UserProfile, NutritionPlanDay } from './types';
+import { ViewState, WeeklyPlan, NutritionDay, Activity, UserProfile, NutritionPlanDay, Meal, isMeal } from './types';
 import { generateTrainingPlan, getFallbackTrainingPlan, validateGeminiApiKey } from './services/gemini';
 import { clearStravaTokens, exchangeStravaToken, fetchStravaActivities, getStoredStravaTokens, getStravaAuthUrl } from './services/strava';
 import { clearGarminTokens, exchangeGarminToken, fetchGarminActivities, getStoredGarminTokens, getGarminAuthUrl } from './services/garmin';
@@ -313,7 +313,11 @@ const App: React.FC = () => {
     }
   }, [user]);
 
-  const handleAddMeal = (meal: any) => {
+  const handleAddMeal = (meal: Meal) => {
+    if (!isMeal(meal)) {
+      console.warn("Skipped invalid meal payload", meal);
+      return;
+    }
     setNutrition(prev => ({
       ...prev,
       meals: [...prev.meals, meal]

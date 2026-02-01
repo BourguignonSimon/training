@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Meal, NutritionDay, NutritionPlanDay } from '../types';
+import { Meal, MealType, NutritionDay, NutritionPlanDay, PlannedMeal, isMealType, isPlannedMeal } from '../types';
 import { analyzeNutrition, generateNutritionPlan } from '../services/gemini';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { Plus, Loader2, Utensils, Edit2, Wand2 } from 'lucide-react';
@@ -11,7 +11,14 @@ interface NutritionViewProps {
   onSetNutritionPlan: (plan: NutritionPlanDay[]) => void;
 }
 
-const MacroBar = ({ label, value, target, color }: any) => {
+interface MacroBarProps {
+  label: string;
+  value: number;
+  target: number;
+  color: string;
+}
+
+const MacroBar = ({ label, value, target, color }: MacroBarProps) => {
   const pct = Math.min((value / target) * 100, 100);
   return (
     <div className="mb-4">
@@ -88,7 +95,10 @@ export const NutritionView: React.FC<NutritionViewProps> = ({ today, onAddMeal, 
       }
   };
 
-  const addPlannedMeal = (plannedMeal: any, type: string) => {
+  const addPlannedMeal = (plannedMeal: PlannedMeal, type: MealType) => {
+      if (!isPlannedMeal(plannedMeal) || !isMealType(type)) {
+          return;
+      }
       onAddMeal({
           id: Date.now().toString(),
           name: plannedMeal.name,
@@ -97,7 +107,7 @@ export const NutritionView: React.FC<NutritionViewProps> = ({ today, onAddMeal, 
           carbs: plannedMeal.macros.c,
           fats: plannedMeal.macros.f,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: type as any
+          type
       });
       setActiveTab('logger');
   };
@@ -280,33 +290,36 @@ export const NutritionView: React.FC<NutritionViewProps> = ({ today, onAddMeal, 
                     </div>
                 ) : (
                     <div className="space-y-6">
-                         {nutritionPlan.map((day, idx) => (
-                             <div key={idx} className="border-b border-slate-800 last:border-0 pb-6 last:pb-0">
-                                <h3 className="font-bold text-trail-400 mb-3">{day.day}</h3>
-                                <div className="space-y-3">
-                                    {Object.entries(day.meals).map(([type, meal]: [string, any]) => (
-                                        <div key={type} className="bg-slate-950 p-3 rounded-lg flex justify-between items-center border border-slate-800">
-                                            <div>
-                                                <div className="flex items-center space-x-2">
-                                                    <span className="text-xs font-bold text-slate-500 uppercase w-20">{type}</span>
-                                                    <span className="text-white font-medium">{meal.name}</span>
+                         {nutritionPlan.map((day, idx) => {
+                             const mealEntries = Object.entries(day.meals) as [MealType, PlannedMeal][];
+                             return (
+                                 <div key={idx} className="border-b border-slate-800 last:border-0 pb-6 last:pb-0">
+                                    <h3 className="font-bold text-trail-400 mb-3">{day.day}</h3>
+                                    <div className="space-y-3">
+                                        {mealEntries.map(([type, meal]) => (
+                                            <div key={type} className="bg-slate-950 p-3 rounded-lg flex justify-between items-center border border-slate-800">
+                                                <div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <span className="text-xs font-bold text-slate-500 uppercase w-20">{type}</span>
+                                                        <span className="text-white font-medium">{meal.name}</span>
+                                                    </div>
+                                                    <div className="text-xs text-slate-400 ml-[88px]">
+                                                        {meal.calories} kcal • {meal.macros.c}g C
+                                                    </div>
                                                 </div>
-                                                <div className="text-xs text-slate-400 ml-[88px]">
-                                                    {meal.calories} kcal • {meal.macros.c}g C
-                                                </div>
+                                                <button 
+                                                    onClick={() => addPlannedMeal(meal, type)}
+                                                    className="text-trail-500 hover:text-trail-400 hover:bg-trail-900/20 p-2 rounded-full transition-colors"
+                                                    title="Add to Daily Log"
+                                                >
+                                                    <Plus size={18} />
+                                                </button>
                                             </div>
-                                            <button 
-                                                onClick={() => addPlannedMeal(meal, type)}
-                                                className="text-trail-500 hover:text-trail-400 hover:bg-trail-900/20 p-2 rounded-full transition-colors"
-                                                title="Add to Daily Log"
-                                            >
-                                                <Plus size={18} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                             </div>
-                         ))}
+                                        ))}
+                                    </div>
+                                 </div>
+                             );
+                         })}
                     </div>
                 )}
             </div>
