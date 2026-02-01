@@ -36,13 +36,44 @@ type IntegrationState = {
   lastSync?: string;
 };
 
+const STORAGE_KEYS = {
+  user: "trail.user",
+  plan: "trail.plan",
+  nutrition: "trail.nutrition",
+  nutritionPlan: "trail.nutritionPlan"
+};
+
+const loadFromStorage = <T,>(key: string, fallback: T): T => {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+  try {
+    const stored = window.localStorage.getItem(key);
+    if (!stored) {
+      return fallback;
+    }
+    return JSON.parse(stored) as T;
+  } catch (error) {
+    console.warn(`Failed to load ${key} from localStorage`, error);
+    return fallback;
+  }
+};
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [plan, setPlan] = useState<WeeklyPlan | null>(null);
-  const [nutrition, setNutrition] = useState<NutritionDay>(INITIAL_NUTRITION);
-  const [nutritionPlan, setNutritionPlan] = useState<NutritionPlanDay[]>([]);
-  const [user, setUser] = useState<UserProfile>(INITIAL_USER);
+  const [plan, setPlan] = useState<WeeklyPlan | null>(() =>
+    loadFromStorage<WeeklyPlan | null>(STORAGE_KEYS.plan, null)
+  );
+  const [nutrition, setNutrition] = useState<NutritionDay>(() =>
+    loadFromStorage<NutritionDay>(STORAGE_KEYS.nutrition, INITIAL_NUTRITION)
+  );
+  const [nutritionPlan, setNutritionPlan] = useState<NutritionPlanDay[]>(() =>
+    loadFromStorage<NutritionPlanDay[]>(STORAGE_KEYS.nutritionPlan, [])
+  );
+  const [user, setUser] = useState<UserProfile>(() =>
+    loadFromStorage<UserProfile>(STORAGE_KEYS.user, INITIAL_USER)
+  );
   const [integrations, setIntegrations] = useState<{
     strava: IntegrationState;
     garmin: IntegrationState;
@@ -83,7 +114,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (apiStatus.state === "checking") {
+    if (apiStatus.state === "checking" || plan) {
       return;
     }
     const fetchPlan = async () => {
@@ -96,7 +127,7 @@ const App: React.FC = () => {
       setPlan(getFallbackTrainingPlan());
     };
     fetchPlan();
-  }, [apiStatus.state]);
+  }, [apiStatus.state, plan]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -198,6 +229,54 @@ const App: React.FC = () => {
     };
     loadActivities();
   }, [user.stravaConnected, user.garminConnected]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      if (plan) {
+        window.localStorage.setItem(STORAGE_KEYS.plan, JSON.stringify(plan));
+      } else {
+        window.localStorage.removeItem(STORAGE_KEYS.plan);
+      }
+    } catch (error) {
+      console.warn("Failed to persist training plan", error);
+    }
+  }, [plan]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.nutrition, JSON.stringify(nutrition));
+    } catch (error) {
+      console.warn("Failed to persist nutrition log", error);
+    }
+  }, [nutrition]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.nutritionPlan, JSON.stringify(nutritionPlan));
+    } catch (error) {
+      console.warn("Failed to persist nutrition plan", error);
+    }
+  }, [nutritionPlan]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+    } catch (error) {
+      console.warn("Failed to persist user settings", error);
+    }
+  }, [user]);
 
   const handleAddMeal = (meal: any) => {
     setNutrition(prev => ({
