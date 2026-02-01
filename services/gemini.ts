@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { WeeklyPlan, Meal, NutritionPlanDay } from "../types";
+import { WeeklyPlan, Meal, NutritionPlanDay, isMealInput } from "../types";
 
 const rawApiKey = import.meta.env.VITE_GEMINI_API_KEY ?? "";
 const apiKey = rawApiKey.trim();
@@ -227,6 +227,9 @@ export const analyzeNutrition = async (foodLog: string): Promise<Meal> => {
 
     if (response.text) {
       const data = JSON.parse(response.text);
+      if (!isMealInput(data)) {
+        throw new Error("Invalid meal response");
+      }
       return {
         ...data,
         id: Date.now().toString(),

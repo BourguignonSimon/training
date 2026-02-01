@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { LayoutDashboard, Calendar, Utensils, Settings, Activity } from 'lucide-react';
+import { LayoutDashboard, Calendar, Utensils, Settings, Activity, LucideIcon } from 'lucide-react';
 import { ViewState } from '../types';
 
 interface LayoutProps {
@@ -21,7 +21,7 @@ const NavItem = ({
 }: { 
   view: ViewState; 
   current: ViewState; 
-  icon: any; 
+  icon: LucideIcon; 
   label: string; 
   onClick: (v: ViewState) => void 
 }) => (

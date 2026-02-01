@@ -1,11 +1,11 @@
 import React from 'react';
-import { Activity } from '../types';
+import { Activity, TrainingSession } from '../types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, Mountain, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { TrendingUp, Mountain, Clock, CheckCircle2, AlertCircle, LucideIcon } from 'lucide-react';
 
 interface DashboardProps {
   recentActivities: Activity[];
-  nextWorkout: any;
+  nextWorkout?: TrainingSession;
   integrations: {
     strava: { connected: boolean; syncing: boolean; error?: string };
     garmin: { connected: boolean; syncing: boolean; error?: string };
@@ -17,7 +17,15 @@ interface DashboardProps {
   onRegeneratePlan: () => void;
 }
 
-const StatCard = ({ label, value, sub, icon: Icon, color }: any) => (
+interface StatCardProps {
+  label: string;
+  value: string;
+  sub?: string;
+  icon: LucideIcon;
+  color: string;
+}
+
+const StatCard = ({ label, value, sub, icon: Icon, color }: StatCardProps) => (
   <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
     <div className="flex justify-between items-start mb-4">
       <div className={`p-3 rounded-xl ${color} bg-opacity-10`}>
