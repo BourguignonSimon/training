@@ -1,7 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { WeeklyPlan, Meal, NutritionPlanDay } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+const rawApiKey = import.meta.env.VITE_GEMINI_API_KEY ?? "";
+const apiKey = rawApiKey.trim();
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 // System instruction for the coach persona
 const COACH_SYSTEM_INSTRUCTION = `You are an elite ultra-trail running coach specializing in 100-mile (175km) races. 
@@ -21,7 +23,67 @@ const getDatesForWeek = () => {
     dates.push(d.toISOString().split('T')[0]);
   }
   return dates;
-}
+};
+
+export const getFallbackTrainingPlan = (): WeeklyPlan => {
+  const dates = getDatesForWeek();
+  return {
+    weekNumber: 1,
+    focus: "Base Building & Aerobic Capacity",
+    sessions: [
+      { day: "Monday", date: dates[0], type: "Rest", distanceTarget: 0, description: "Active recovery or total rest." },
+      { day: "Tuesday", date: dates[1], type: "Easy", distanceTarget: 10, description: "Zone 2 flat trail run." },
+      { day: "Wednesday", date: dates[2], type: "Hill Repeats", distanceTarget: 8, description: "10x3min hills @ threshold." },
+      { day: "Thursday", date: dates[3], type: "Easy", distanceTarget: 10, description: "Recovery run, keep HR low." },
+      { day: "Friday", date: dates[4], type: "Rest", distanceTarget: 0, description: "Mobility work." },
+      { day: "Saturday", date: dates[5], type: "Long Run", distanceTarget: 25, description: "Trail run with 1000m+ elevation gain." },
+      { day: "Sunday", date: dates[6], type: "Easy", distanceTarget: 15, description: "Back-to-back run on tired legs." }
+    ]
+  };
+};
+
+export const validateGeminiApiKey = async (): Promise<{
+  status: "valid" | "missing" | "invalid";
+  message?: string;
+}> => {
+  if (!apiKey) {
+    return {
+      status: "missing",
+      message: "Add your Gemini API key to VITE_GEMINI_API_KEY to unlock AI-generated plans."
+    };
+  }
+
+  if (apiKey.toLowerCase().includes("your_")) {
+    return {
+      status: "invalid",
+      message: "Replace the placeholder VITE_GEMINI_API_KEY value with a real Gemini API key."
+    };
+  }
+
+  if (!ai) {
+    return {
+      status: "invalid",
+      message: "Gemini API client could not be initialized. Check the API key configuration."
+    };
+  }
+
+  try {
+    await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: "ping",
+      config: {
+        responseMimeType: "text/plain"
+      }
+    });
+    return { status: "valid" };
+  } catch (error) {
+    console.error("Gemini API Key Validation Error:", error);
+    return {
+      status: "invalid",
+      message: "Gemini rejected the API key. Verify the key and refresh the app."
+    };
+  }
+};
 
 export const generateTrainingPlan = async (
   weeksToRace: number, 
@@ -40,6 +102,9 @@ export const generateTrainingPlan = async (
   Return ONLY JSON.`;
 
   try {
+    if (!ai) {
+      throw new Error("Missing Gemini API key");
+    }
     const response = await ai.models.generateContent({
       model,
       contents: prompt,
@@ -75,20 +140,7 @@ export const generateTrainingPlan = async (
     throw new Error("No text response from Gemini");
   } catch (error) {
     console.error("Gemini Training Plan Error:", error);
-    const dates = getDatesForWeek();
-    return {
-      weekNumber: 1,
-      focus: "Base Building & Aerobic Capacity",
-      sessions: [
-        { day: "Monday", date: dates[0], type: "Rest", distanceTarget: 0, description: "Active recovery or total rest." },
-        { day: "Tuesday", date: dates[1], type: "Easy", distanceTarget: 10, description: "Zone 2 flat trail run." },
-        { day: "Wednesday", date: dates[2], type: "Hill Repeats", distanceTarget: 8, description: "10x3min hills @ threshold." },
-        { day: "Thursday", date: dates[3], type: "Easy", distanceTarget: 10, description: "Recovery run, keep HR low." },
-        { day: "Friday", date: dates[4], type: "Rest", distanceTarget: 0, description: "Mobility work." },
-        { day: "Saturday", date: dates[5], type: "Long Run", distanceTarget: 25, description: "Trail run with 1000m+ elevation gain." },
-        { day: "Sunday", date: dates[6], type: "Easy", distanceTarget: 15, description: "Back-to-back run on tired legs." }
-      ]
-    };
+    return getFallbackTrainingPlan();
   }
 };
 
@@ -97,6 +149,9 @@ export const generateNutritionPlan = async (focus: string): Promise<NutritionPla
     const prompt = `Create a 3-day sample nutrition plan for a trail runner. Training focus: ${focus}. Return JSON.`;
     
     try {
+        if (!ai) {
+            throw new Error("Missing Gemini API key");
+        }
         const response = await ai.models.generateContent({
             model,
             contents: prompt,
@@ -146,7 +201,10 @@ export const analyzeNutrition = async (foodLog: string): Promise<Meal> => {
   const prompt = `Analyze this food entry: "${foodLog}". Estimate calories and macros.
   Return JSON.`;
 
-  try {
+    try {
+    if (!ai) {
+      throw new Error("Missing Gemini API key");
+    }
     const response = await ai.models.generateContent({
       model,
       contents: prompt,
@@ -194,6 +252,9 @@ export const analyzeNutrition = async (foodLog: string): Promise<Meal> => {
 export const getCoachAdvice = async (query: string, context: string): Promise<string> => {
     const model = 'gemini-3-flash-preview';
     try {
+        if (!ai) {
+            throw new Error("Missing Gemini API key");
+        }
         const response = await ai.models.generateContent({
             model,
             contents: `Context: ${context}. User Query: ${query}`,
