@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { WeeklyPlan, Meal, NutritionPlanDay } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 // System instruction for the coach persona
 const COACH_SYSTEM_INSTRUCTION = `You are an elite ultra-trail running coach specializing in 100-mile (175km) races. 
