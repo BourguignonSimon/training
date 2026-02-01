@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Meal, NutritionDay, NutritionPlanDay } from '../types';
 import { analyzeNutrition, generateNutritionPlan } from '../services/gemini';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { Plus, Loader2, Utensils, Edit2, Trash2, ChevronRight, Wand2 } from 'lucide-react';
+import { Plus, Loader2, Utensils, Edit2, Wand2 } from 'lucide-react';
 
 interface NutritionViewProps {
   today: NutritionDay;
@@ -33,19 +33,33 @@ export const NutritionView: React.FC<NutritionViewProps> = ({ today, onAddMeal, 
   const [input, setInput] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [lastAnalysisInput, setLastAnalysisInput] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'logger' | 'plan'>('logger');
   const [manualMode, setManualMode] = useState(false);
   const [manualMeal, setManualMeal] = useState({ name: '', calories: 0, protein: 0, carbs: 0, fats: 0 });
 
+  const runAnalysis = async (text: string) => {
+    setIsAnalyzing(true);
+    setAnalysisError(null);
+    setLastAnalysisInput(text);
+    try {
+      const meal = await analyzeNutrition(text);
+      onAddMeal(meal);
+      setInput("");
+    } catch (error) {
+      console.error("Nutrition analysis failed", error);
+      setAnalysisError("We couldn't analyze that meal. Please try again or switch to manual entry.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-
-    setIsAnalyzing(true);
-    const meal = await analyzeNutrition(input);
-    onAddMeal(meal);
-    setInput("");
-    setIsAnalyzing(false);
+    await runAnalysis(input);
   };
 
   const handleManualSubmit = (e: React.FormEvent) => {
@@ -62,9 +76,16 @@ export const NutritionView: React.FC<NutritionViewProps> = ({ today, onAddMeal, 
 
   const handleGeneratePlan = async () => {
       setIsGeneratingPlan(true);
-      const plan = await generateNutritionPlan("Endurance and Recovery");
-      onSetNutritionPlan(plan);
-      setIsGeneratingPlan(false);
+      setPlanError(null);
+      try {
+        const plan = await generateNutritionPlan("Endurance and Recovery");
+        onSetNutritionPlan(plan);
+      } catch (error) {
+        console.error("Nutrition plan generation failed", error);
+        setPlanError("We couldn't generate a nutrition plan. Try again in a moment.");
+      } finally {
+        setIsGeneratingPlan(false);
+      }
   };
 
   const addPlannedMeal = (plannedMeal: any, type: string) => {
@@ -177,6 +198,18 @@ export const NutritionView: React.FC<NutritionViewProps> = ({ today, onAddMeal, 
                             </button>
                         </form>
                     )}
+                    {analysisError && (
+                        <div className="mt-4 bg-orange-500/10 border border-orange-500/30 text-orange-200 text-sm rounded-xl p-3 flex items-center justify-between gap-3">
+                            <span>{analysisError}</span>
+                            <button
+                              type="button"
+                              onClick={() => lastAnalysisInput && runAnalysis(lastAnalysisInput)}
+                              className="text-xs font-semibold text-orange-100 bg-orange-500/20 hover:bg-orange-500/30 px-3 py-1 rounded-full"
+                            >
+                              Retry
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-3">
@@ -227,6 +260,18 @@ export const NutritionView: React.FC<NutritionViewProps> = ({ today, onAddMeal, 
                         {nutritionPlan.length > 0 ? 'Regenerate' : 'Generate Plan'}
                     </button>
                 </div>
+                {planError && (
+                    <div className="mb-4 bg-orange-500/10 border border-orange-500/30 text-orange-200 text-sm rounded-xl p-3 flex items-center justify-between gap-3">
+                        <span>{planError}</span>
+                        <button
+                          type="button"
+                          onClick={handleGeneratePlan}
+                          className="text-xs font-semibold text-orange-100 bg-orange-500/20 hover:bg-orange-500/30 px-3 py-1 rounded-full"
+                        >
+                          Retry
+                        </button>
+                    </div>
+                )}
                 
                 {nutritionPlan.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 text-slate-500">
