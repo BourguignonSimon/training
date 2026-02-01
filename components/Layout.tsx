@@ -6,6 +6,10 @@ interface LayoutProps {
   children: ReactNode;
   currentView: ViewState;
   onNavigate: (view: ViewState) => void;
+  notice?: {
+    title: string;
+    message: string;
+  };
 }
 
 const NavItem = ({ 
@@ -34,7 +38,7 @@ const NavItem = ({
   </button>
 );
 
-export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, notice }) => {
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden">
       {/* Sidebar - Desktop */}
@@ -72,6 +76,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigat
         </header>
         
         <div className="p-4 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
+          {notice && (
+            <div className="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-100">
+              <p className="text-sm font-semibold uppercase tracking-wide text-amber-300">{notice.title}</p>
+              <p className="mt-2 text-sm text-amber-100/90">{notice.message}</p>
+            </div>
+          )}
           {children}
         </div>
 

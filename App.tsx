@@ -5,7 +5,7 @@ import { TrainingView } from './components/TrainingView';
 import { NutritionView } from './components/NutritionView';
 import { SettingsView } from './components/SettingsView';
 import { ViewState, WeeklyPlan, NutritionDay, Activity, UserProfile, NutritionPlanDay } from './types';
-import { generateTrainingPlan } from './services/gemini';
+import { generateTrainingPlan, getFallbackTrainingPlan, validateGeminiApiKey } from './services/gemini';
 import { MOCK_ACTIVITIES } from './services/strava';
 
 const INITIAL_USER: UserProfile = {
@@ -34,15 +34,45 @@ const App: React.FC = () => {
   const [plan, setPlan] = useState<WeeklyPlan | null>(null);
   const [nutrition, setNutrition] = useState<NutritionDay>(INITIAL_NUTRITION);
   const [nutritionPlan, setNutritionPlan] = useState<NutritionPlanDay[]>([]);
+  const [apiStatus, setApiStatus] = useState<{
+    state: "checking" | "valid" | "missing" | "invalid";
+    message?: string;
+  }>({ state: "checking" });
   
   useEffect(() => {
+    let isMounted = true;
+    const checkApiKey = async () => {
+      const result = await validateGeminiApiKey();
+      if (!isMounted) {
+        return;
+      }
+      if (result.status === "valid") {
+        setApiStatus({ state: "valid" });
+      } else {
+        setApiStatus({ state: result.status, message: result.message });
+      }
+    };
+    checkApiKey();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (apiStatus.state === "checking") {
+      return;
+    }
     const fetchPlan = async () => {
       // In a real app, check if we have this week stored, else generate
-      const newPlan = await generateTrainingPlan(16, 'Advanced', new Date().toISOString().split('T')[0]);
-      setPlan(newPlan);
+      if (apiStatus.state === "valid") {
+        const newPlan = await generateTrainingPlan(16, 'Advanced', new Date().toISOString().split('T')[0]);
+        setPlan(newPlan);
+        return;
+      }
+      setPlan(getFallbackTrainingPlan());
     };
     fetchPlan();
-  }, []);
+  }, [apiStatus.state]);
 
   const handleAddMeal = (meal: any) => {
     setNutrition(prev => ({
@@ -55,8 +85,15 @@ const App: React.FC = () => {
   const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long' });
   const nextWorkout = plan?.sessions.find(s => s.day === todayStr) || plan?.sessions[0];
 
+  const apiNotice = apiStatus.state === "missing" || apiStatus.state === "invalid"
+    ? {
+        title: "Gemini API key issue",
+        message: apiStatus.message || "Add a valid Gemini API key to enable AI-powered plans."
+      }
+    : undefined;
+
   return (
-    <Layout currentView={currentView} onNavigate={setCurrentView}>
+    <Layout currentView={currentView} onNavigate={setCurrentView} notice={apiNotice}>
       {currentView === 'dashboard' && (
         <Dashboard 
             recentActivities={activities} 
