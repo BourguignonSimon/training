@@ -1,7 +1,24 @@
 import React from 'react';
 import { UserProfile } from '../types';
 
-export const SettingsView = ({ user }: { user: UserProfile }) => {
+type IntegrationState = {
+    connected: boolean;
+    syncing: boolean;
+    error?: string;
+    lastSync?: string;
+};
+
+export const SettingsView = ({
+    user,
+    integrations,
+    onConnect,
+    onDisconnect
+}: {
+    user: UserProfile;
+    integrations: { strava: IntegrationState; garmin: IntegrationState };
+    onConnect: (provider: "strava" | "garmin") => void;
+    onDisconnect: (provider: "strava" | "garmin") => void;
+}) => {
     return (
         <div className="max-w-2xl mx-auto space-y-8">
             <div className="bg-slate-900 p-8 rounded-2xl border border-slate-800">
@@ -35,9 +52,17 @@ export const SettingsView = ({ user }: { user: UserProfile }) => {
                         <div>
                             <h3 className="font-bold text-white">Strava</h3>
                             <p className="text-sm text-slate-400">Sync activities automatically</p>
+                            {integrations.strava.error && (
+                                <p className="text-xs text-orange-300 mt-1">{integrations.strava.error}</p>
+                            )}
                         </div>
                     </div>
-                    <button className="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg border border-slate-700">
+                    <button
+                        className="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg border border-slate-700"
+                        onClick={() =>
+                            user.stravaConnected ? onDisconnect("strava") : onConnect("strava")
+                        }
+                    >
                         {user.stravaConnected ? 'Disconnect' : 'Connect'}
                     </button>
                 </div>
@@ -50,9 +75,17 @@ export const SettingsView = ({ user }: { user: UserProfile }) => {
                         <div>
                             <h3 className="font-bold text-white">Garmin Connect</h3>
                             <p className="text-sm text-slate-400">Sync activities and health metrics</p>
+                            {integrations.garmin.error && (
+                                <p className="text-xs text-orange-300 mt-1">{integrations.garmin.error}</p>
+                            )}
                         </div>
                     </div>
-                    <button className="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg border border-slate-700">
+                    <button
+                        className="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg border border-slate-700"
+                        onClick={() =>
+                            user.garminConnected ? onDisconnect("garmin") : onConnect("garmin")
+                        }
+                    >
                         {user.garminConnected ? 'Disconnect' : 'Connect'}
                     </button>
                 </div>

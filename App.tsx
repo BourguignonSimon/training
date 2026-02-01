@@ -6,13 +6,14 @@ import { NutritionView } from './components/NutritionView';
 import { SettingsView } from './components/SettingsView';
 import { ViewState, WeeklyPlan, NutritionDay, Activity, UserProfile, NutritionPlanDay } from './types';
 import { generateTrainingPlan, getFallbackTrainingPlan, validateGeminiApiKey } from './services/gemini';
-import { MOCK_ACTIVITIES } from './services/strava';
+import { clearStravaTokens, exchangeStravaToken, fetchStravaActivities, getStoredStravaTokens, getStravaAuthUrl } from './services/strava';
+import { clearGarminTokens, exchangeGarminToken, fetchGarminActivities, getStoredGarminTokens, getGarminAuthUrl } from './services/garmin';
 
 const INITIAL_USER: UserProfile = {
   name: "Trail Runner",
   raceDistance: 175,
   raceDate: "2025-08-24",
-  stravaConnected: true,
+  stravaConnected: false,
   garminConnected: false,
   fitnessLevel: 'Advanced'
 };
@@ -28,12 +29,27 @@ const INITIAL_NUTRITION: NutritionDay = {
   }
 };
 
+type IntegrationState = {
+  connected: boolean;
+  syncing: boolean;
+  error?: string;
+  lastSync?: string;
+};
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
-  const [activities] = useState<Activity[]>(MOCK_ACTIVITIES);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [plan, setPlan] = useState<WeeklyPlan | null>(null);
   const [nutrition, setNutrition] = useState<NutritionDay>(INITIAL_NUTRITION);
   const [nutritionPlan, setNutritionPlan] = useState<NutritionPlanDay[]>([]);
+  const [user, setUser] = useState<UserProfile>(INITIAL_USER);
+  const [integrations, setIntegrations] = useState<{
+    strava: IntegrationState;
+    garmin: IntegrationState;
+  }>({
+    strava: { connected: Boolean(getStoredStravaTokens()), syncing: false },
+    garmin: { connected: Boolean(getStoredGarminTokens()), syncing: false }
+  });
   const [apiStatus, setApiStatus] = useState<{
     state: "checking" | "valid" | "missing" | "invalid";
     message?: string;
@@ -59,6 +75,14 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    setUser((prev) => ({
+      ...prev,
+      stravaConnected: Boolean(getStoredStravaTokens()),
+      garminConnected: Boolean(getStoredGarminTokens())
+    }));
+  }, []);
+
+  useEffect(() => {
     if (apiStatus.state === "checking") {
       return;
     }
@@ -74,10 +98,144 @@ const App: React.FC = () => {
     fetchPlan();
   }, [apiStatus.state]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const provider = params.get("state") || params.get("provider");
+    if (!code || !provider) {
+      return;
+    }
+    if (provider !== "strava" && provider !== "garmin") {
+      return;
+    }
+    const handleOAuth = async () => {
+      try {
+        if (provider === "strava") {
+          await exchangeStravaToken(code);
+        }
+        if (provider === "garmin") {
+          await exchangeGarminToken(code);
+        }
+        setIntegrations((prev) => ({
+          ...prev,
+          [provider]: {
+            ...prev[provider as "strava" | "garmin"],
+            connected: true,
+            error: undefined
+          }
+        }));
+        setUser((prev) => ({
+          ...prev,
+          stravaConnected: provider === "strava" ? true : prev.stravaConnected,
+          garminConnected: provider === "garmin" ? true : prev.garminConnected
+        }));
+      } catch (error) {
+        console.error("OAuth failed", error);
+        setIntegrations((prev) => ({
+          ...prev,
+          [provider]: {
+            ...prev[provider as "strava" | "garmin"],
+            error: "Authentication failed. Check your integration settings."
+          }
+        }));
+      } finally {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    };
+    handleOAuth();
+  }, []);
+
+  useEffect(() => {
+    const loadActivities = async () => {
+      setIntegrations((prev) => ({
+        strava: { ...prev.strava, syncing: true, error: undefined },
+        garmin: { ...prev.garmin, syncing: true, error: undefined }
+      }));
+      try {
+        const [stravaResult, garminResult] = await Promise.allSettled([
+          fetchStravaActivities(),
+          fetchGarminActivities()
+        ]);
+        const stravaActivities =
+          stravaResult.status === "fulfilled" ? stravaResult.value : [];
+        const garminActivities =
+          garminResult.status === "fulfilled" ? garminResult.value : [];
+        const nextActivities = [...stravaActivities, ...garminActivities].sort(
+          (a, b) => (a.date < b.date ? 1 : -1)
+        );
+        setActivities(nextActivities);
+        setIntegrations((prev) => ({
+          strava: {
+            ...prev.strava,
+            syncing: false,
+            error:
+              stravaResult.status === "rejected"
+                ? "Unable to sync Strava activities."
+                : prev.strava.error,
+            lastSync: stravaResult.status === "fulfilled"
+              ? new Date().toISOString()
+              : prev.strava.lastSync
+          },
+          garmin: {
+            ...prev.garmin,
+            syncing: false,
+            error:
+              garminResult.status === "rejected"
+                ? "Unable to sync Garmin activities."
+                : prev.garmin.error,
+            lastSync: garminResult.status === "fulfilled"
+              ? new Date().toISOString()
+              : prev.garmin.lastSync
+          }
+        }));
+      } catch (error) {
+        console.error("Failed to load activities", error);
+        setIntegrations((prev) => ({
+          strava: { ...prev.strava, syncing: false, error: prev.strava.error ?? "Unable to sync Strava activities." },
+          garmin: { ...prev.garmin, syncing: false, error: prev.garmin.error ?? "Unable to sync Garmin activities." }
+        }));
+      }
+    };
+    loadActivities();
+  }, [user.stravaConnected, user.garminConnected]);
+
   const handleAddMeal = (meal: any) => {
     setNutrition(prev => ({
       ...prev,
       meals: [...prev.meals, meal]
+    }));
+  };
+
+  const handleConnect = (provider: "strava" | "garmin") => {
+    try {
+      const authUrl = provider === "strava" ? getStravaAuthUrl() : getGarminAuthUrl();
+      window.location.assign(authUrl);
+    } catch (error) {
+      console.error("Failed to start OAuth", error);
+      setIntegrations((prev) => ({
+        ...prev,
+        [provider]: {
+          ...prev[provider],
+          error: "Missing integration configuration."
+        }
+      }));
+    }
+  };
+
+  const handleDisconnect = (provider: "strava" | "garmin") => {
+    if (provider === "strava") {
+      clearStravaTokens();
+    } else {
+      clearGarminTokens();
+    }
+    setIntegrations((prev) => ({
+      ...prev,
+      [provider]: { ...prev[provider], connected: false }
+    }));
+    setUser((prev) => ({
+      ...prev,
+      stravaConnected: provider === "strava" ? false : prev.stravaConnected,
+      garminConnected: provider === "garmin" ? false : prev.garminConnected
     }));
   };
 
@@ -98,7 +256,7 @@ const App: React.FC = () => {
         <Dashboard 
             recentActivities={activities} 
             nextWorkout={nextWorkout} 
-            weeklyPlan={plan || undefined}
+            integrations={integrations}
         />
       )}
       
@@ -107,6 +265,7 @@ const App: React.FC = () => {
             plan={plan} 
             onUpdatePlan={setPlan} 
             activities={activities}
+            integrations={integrations}
         />
       )}
       
@@ -120,7 +279,12 @@ const App: React.FC = () => {
       )}
 
       {currentView === 'settings' && (
-        <SettingsView user={INITIAL_USER} />
+        <SettingsView
+          user={user}
+          integrations={integrations}
+          onConnect={handleConnect}
+          onDisconnect={handleDisconnect}
+        />
       )}
     </Layout>
   );

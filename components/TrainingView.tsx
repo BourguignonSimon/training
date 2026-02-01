@@ -7,9 +7,13 @@ interface TrainingViewProps {
   plan: WeeklyPlan;
   onUpdatePlan: (plan: WeeklyPlan) => void;
   activities: Activity[];
+  integrations: {
+    strava: { connected: boolean; syncing: boolean; error?: string };
+    garmin: { connected: boolean; syncing: boolean; error?: string };
+  };
 }
 
-export const TrainingView: React.FC<TrainingViewProps> = ({ plan, onUpdatePlan, activities }) => {
+export const TrainingView: React.FC<TrainingViewProps> = ({ plan, onUpdatePlan, activities, integrations }) => {
   const [selectedDay, setSelectedDay] = useState<TrainingSession | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [chatHistory, setChatHistory] = useState<{role: 'user' | 'coach', text: string}[]>([]);
@@ -54,9 +58,17 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ plan, onUpdatePlan, 
             <p className="text-trail-400 text-sm">{plan.focus}</p>
           </div>
           <div className="flex items-center space-x-4">
-             <div className="text-xs text-slate-400 flex items-center">
-                <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
-                Syncing with Strava
+            <div className="text-xs text-slate-400 flex items-center">
+                <span
+                  className={`w-2 h-2 rounded-full mr-2 ${
+                    integrations.strava.connected || integrations.garmin.connected
+                      ? "bg-green-500"
+                      : "bg-slate-500"
+                  } ${integrations.strava.syncing || integrations.garmin.syncing ? "animate-pulse" : ""}`}
+                ></span>
+                {integrations.strava.syncing || integrations.garmin.syncing
+                  ? "Syncing activities"
+                  : "Activity sync idle"}
              </div>
              <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 transition-colors">
                 <RefreshCw size={20} />
@@ -116,7 +128,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ plan, onUpdatePlan, 
                      <p className="text-slate-400 text-sm flex-1">{session.description}</p>
                      {matchedActivity && (
                         <div className="text-xs text-slate-500 ml-4 bg-slate-800 px-2 py-1 rounded">
-                             Stava: {matchedActivity.name}
+                             Activity: {matchedActivity.name}
                         </div>
                      )}
                 </div>
@@ -136,7 +148,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ plan, onUpdatePlan, 
             
             {getMatchedActivity(selectedDay.date) && (
                  <div className="mt-4 p-3 bg-slate-950/50 rounded-lg border border-slate-800">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Strava Activity</h4>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Synced Activity</h4>
                     <div className="flex justify-between text-sm">
                         <span className="text-white">{getMatchedActivity(selectedDay.date)?.name}</span>
                         <span className="text-trail-400">{getMatchedActivity(selectedDay.date)?.distance} km</span>

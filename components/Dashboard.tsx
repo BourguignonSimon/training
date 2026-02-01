@@ -1,12 +1,15 @@
 import React from 'react';
-import { Activity, WeeklyPlan } from '../types';
+import { Activity } from '../types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { TrendingUp, Mountain, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface DashboardProps {
   recentActivities: Activity[];
   nextWorkout: any;
-  weeklyPlan?: WeeklyPlan;
+  integrations: {
+    strava: { connected: boolean; syncing: boolean; error?: string };
+    garmin: { connected: boolean; syncing: boolean; error?: string };
+  };
 }
 
 const StatCard = ({ label, value, sub, icon: Icon, color }: any) => (
@@ -22,7 +25,7 @@ const StatCard = ({ label, value, sub, icon: Icon, color }: any) => (
   </div>
 );
 
-export const Dashboard: React.FC<DashboardProps> = ({ recentActivities, nextWorkout, weeklyPlan }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ recentActivities, nextWorkout, integrations }) => {
   // Process data for charts
   const weeklyVolume = recentActivities.slice(0, 7).reduce((acc, curr) => acc + curr.distance, 0);
   const totalVert = recentActivities.slice(0, 7).reduce((acc, curr) => acc + curr.elevationGain, 0);
@@ -40,11 +43,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ recentActivities, nextWork
           <h2 className="text-3xl font-bold text-white">Coach Dashboard</h2>
           <p className="text-slate-400">Week 4 of 16 • 175km Race Prep</p>
         </div>
-        <div className="flex space-x-3">
-            <div className="flex items-center space-x-2 bg-slate-900 border border-slate-800 px-4 py-2 rounded-lg">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                <span className="text-sm font-medium text-slate-300">Strava Connected</span>
-            </div>
+        <div className="flex flex-wrap gap-3">
+          {(["strava", "garmin"] as const).map((provider) => {
+            const integration = integrations[provider];
+            const label = provider === "strava" ? "Strava" : "Garmin";
+            const statusText = integration.connected ? "Connected" : "Not Connected";
+            return (
+              <div
+                key={provider}
+                className="flex items-center space-x-2 bg-slate-900 border border-slate-800 px-4 py-2 rounded-lg"
+              >
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    integration.connected ? "bg-green-500" : "bg-slate-500"
+                  } ${integration.syncing ? "animate-pulse" : ""}`}
+                ></div>
+                <span className="text-sm font-medium text-slate-300">
+                  {label} {statusText}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
