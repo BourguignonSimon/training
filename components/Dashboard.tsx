@@ -10,6 +10,11 @@ interface DashboardProps {
     strava: { connected: boolean; syncing: boolean; error?: string };
     garmin: { connected: boolean; syncing: boolean; error?: string };
   };
+  activitiesLoading: boolean;
+  planLoading: boolean;
+  planError?: string;
+  onRefreshActivities: () => void;
+  onRegeneratePlan: () => void;
 }
 
 const StatCard = ({ label, value, sub, icon: Icon, color }: any) => (
@@ -25,7 +30,20 @@ const StatCard = ({ label, value, sub, icon: Icon, color }: any) => (
   </div>
 );
 
-export const Dashboard: React.FC<DashboardProps> = ({ recentActivities, nextWorkout, integrations }) => {
+const SkeletonBlock = ({ className }: { className: string }) => (
+  <div className={`animate-pulse bg-slate-800/70 rounded ${className}`} />
+);
+
+export const Dashboard: React.FC<DashboardProps> = ({
+  recentActivities,
+  nextWorkout,
+  integrations,
+  activitiesLoading,
+  planLoading,
+  planError,
+  onRefreshActivities,
+  onRegeneratePlan
+}) => {
   // Process data for charts
   const weeklyVolume = recentActivities.slice(0, 7).reduce((acc, curr) => acc + curr.distance, 0);
   const totalVert = recentActivities.slice(0, 7).reduce((acc, curr) => acc + curr.elevationGain, 0);
@@ -36,8 +54,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ recentActivities, nextWork
     elevation: act.elevationGain
   }));
 
+  const syncError = integrations.strava.error || integrations.garmin.error;
+  const alertMessage = planError || syncError;
+  const alertAction = planError ? onRegeneratePlan : onRefreshActivities;
+  const alertLabel = planError ? "Retry plan" : "Retry sync";
+
   return (
     <div className="space-y-6">
+      {alertMessage && (
+        <div className="bg-orange-500/10 border border-orange-500/30 text-orange-200 text-sm rounded-xl p-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="font-semibold">Heads up</p>
+            <p className="text-xs text-orange-200/80">{alertMessage}</p>
+          </div>
+          <button
+            onClick={alertAction}
+            className="text-xs font-semibold text-orange-100 bg-orange-500/20 hover:bg-orange-500/30 px-3 py-1 rounded-full"
+          >
+            {alertLabel}
+          </button>
+        </div>
+      )}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold text-white">Coach Dashboard</h2>
@@ -68,33 +105,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ recentActivities, nextWork
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard 
-          label="Last 7 Days Volume" 
-          value={`${weeklyVolume.toFixed(1)} km`} 
-          sub="+12%" 
-          icon={TrendingUp} 
-          color="bg-blue-500" 
-        />
-        <StatCard 
-          label="Elevation Gain" 
-          value={`${totalVert} m`} 
-          sub="On Track" 
-          icon={Mountain} 
-          color="bg-purple-500" 
-        />
-        <StatCard 
-          label="Avg Pace" 
-          value="06:12 /km" 
-          icon={Clock} 
-          color="bg-orange-500" 
-        />
-        <StatCard 
-          label="Training Adherence" 
-          value="92%" 
-          sub="High" 
-          icon={CheckCircle2} 
-          color="bg-trail-500" 
-        />
+        {activitiesLoading && recentActivities.length === 0 ? (
+          Array.from({ length: 4 }).map((_, idx) => (
+            <div key={idx} className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
+              <SkeletonBlock className="h-10 w-10 mb-4" />
+              <SkeletonBlock className="h-7 w-24 mb-2" />
+              <SkeletonBlock className="h-4 w-32" />
+            </div>
+          ))
+        ) : (
+          <>
+            <StatCard 
+              label="Last 7 Days Volume" 
+              value={`${weeklyVolume.toFixed(1)} km`} 
+              sub="+12%" 
+              icon={TrendingUp} 
+              color="bg-blue-500" 
+            />
+            <StatCard 
+              label="Elevation Gain" 
+              value={`${totalVert} m`} 
+              sub="On Track" 
+              icon={Mountain} 
+              color="bg-purple-500" 
+            />
+            <StatCard 
+              label="Avg Pace" 
+              value="06:12 /km" 
+              icon={Clock} 
+              color="bg-orange-500" 
+            />
+            <StatCard 
+              label="Training Adherence" 
+              value="92%" 
+              sub="High" 
+              icon={CheckCircle2} 
+              color="bg-trail-500" 
+            />
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -102,42 +151,48 @@ export const Dashboard: React.FC<DashboardProps> = ({ recentActivities, nextWork
         <div className="lg:col-span-2 bg-slate-900 p-6 rounded-2xl border border-slate-800">
           <h3 className="text-lg font-semibold mb-6">Activity Volume (Last 14 Days)</h3>
           <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="colorDist" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#34ab76" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#34ab76" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis 
-                    dataKey="name" 
-                    stroke="#475569" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
-                />
-                <YAxis 
-                    stroke="#475569" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tickFormatter={(value) => `${value}km`}
-                />
-                <Tooltip 
-                    contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
-                    itemStyle={{ color: '#fff' }}
-                />
-                <Area 
-                    type="monotone" 
-                    dataKey="distance" 
-                    stroke="#34ab76" 
-                    strokeWidth={3}
-                    fillOpacity={1} 
-                    fill="url(#colorDist)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {activitiesLoading && recentActivities.length === 0 ? (
+              <div className="h-full w-full flex items-center justify-center">
+                <SkeletonBlock className="h-48 w-full" />
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorDist" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#34ab76" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#34ab76" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis 
+                      dataKey="name" 
+                      stroke="#475569" 
+                      fontSize={12} 
+                      tickLine={false} 
+                      axisLine={false} 
+                  />
+                  <YAxis 
+                      stroke="#475569" 
+                      fontSize={12} 
+                      tickLine={false} 
+                      axisLine={false} 
+                      tickFormatter={(value) => `${value}km`}
+                  />
+                  <Tooltip 
+                      contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
+                      itemStyle={{ color: '#fff' }}
+                  />
+                  <Area 
+                      type="monotone" 
+                      dataKey="distance" 
+                      stroke="#34ab76" 
+                      strokeWidth={3}
+                      fillOpacity={1} 
+                      fill="url(#colorDist)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -148,16 +203,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ recentActivities, nextWork
                 <Mountain size={100} />
              </div>
              <h3 className="text-slate-400 text-sm font-medium uppercase tracking-wide mb-2">Up Next</h3>
-             <h2 className="text-2xl font-bold text-white mb-2">{nextWorkout?.type || "Rest Day"}</h2>
-             <div className="text-4xl font-black text-trail-400 mb-4">
-                {nextWorkout?.distanceTarget} <span className="text-lg text-slate-400 font-normal">km</span>
-             </div>
-             <p className="text-slate-300 text-sm mb-6 leading-relaxed">
-                {nextWorkout?.description || "Take it easy and recover for the long run."}
-             </p>
-             <button className="w-full bg-trail-600 hover:bg-trail-500 text-white font-semibold py-3 rounded-xl transition-colors">
-                Start Activity
-             </button>
+             {planLoading ? (
+               <div className="space-y-3">
+                 <SkeletonBlock className="h-6 w-40" />
+                 <SkeletonBlock className="h-10 w-32" />
+                 <SkeletonBlock className="h-3 w-full" />
+                 <SkeletonBlock className="h-10 w-full" />
+               </div>
+             ) : (
+               <>
+                 <h2 className="text-2xl font-bold text-white mb-2">{nextWorkout?.type || "Rest Day"}</h2>
+                 <div className="text-4xl font-black text-trail-400 mb-4">
+                    {nextWorkout?.distanceTarget} <span className="text-lg text-slate-400 font-normal">km</span>
+                 </div>
+                 <p className="text-slate-300 text-sm mb-6 leading-relaxed">
+                    {nextWorkout?.description || "Take it easy and recover for the long run."}
+                 </p>
+                 <button className="w-full bg-trail-600 hover:bg-trail-500 text-white font-semibold py-3 rounded-xl transition-colors">
+                    Start Activity
+                 </button>
+               </>
+             )}
           </div>
 
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800">

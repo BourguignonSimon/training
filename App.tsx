@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { TrainingView } from './components/TrainingView';
@@ -81,10 +81,13 @@ const App: React.FC = () => {
     strava: { connected: Boolean(getStoredStravaTokens()), syncing: false },
     garmin: { connected: Boolean(getStoredGarminTokens()), syncing: false }
   });
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState<{
     state: "checking" | "valid" | "missing" | "invalid";
     message?: string;
   }>({ state: "checking" });
+  const [planLoading, setPlanLoading] = useState(false);
+  const [planError, setPlanError] = useState<string | undefined>(undefined);
   
   useEffect(() => {
     let isMounted = true;
@@ -119,12 +122,22 @@ const App: React.FC = () => {
     }
     const fetchPlan = async () => {
       // In a real app, check if we have this week stored, else generate
-      if (apiStatus.state === "valid") {
-        const newPlan = await generateTrainingPlan(16, 'Advanced', new Date().toISOString().split('T')[0]);
-        setPlan(newPlan);
-        return;
+      setPlanLoading(true);
+      setPlanError(undefined);
+      try {
+        if (apiStatus.state === "valid") {
+          const newPlan = await generateTrainingPlan(16, 'Advanced', new Date().toISOString().split('T')[0]);
+          setPlan(newPlan);
+          return;
+        }
+        setPlan(getFallbackTrainingPlan());
+      } catch (error) {
+        console.error("Failed to generate training plan", error);
+        setPlanError("We couldn't generate a new plan. Showing the saved fallback plan instead.");
+        setPlan(getFallbackTrainingPlan());
+      } finally {
+        setPlanLoading(false);
       }
-      setPlan(getFallbackTrainingPlan());
     };
     fetchPlan();
   }, [apiStatus.state, plan]);
@@ -176,59 +189,81 @@ const App: React.FC = () => {
     handleOAuth();
   }, []);
 
-  useEffect(() => {
-    const loadActivities = async () => {
+  const loadActivities = useCallback(async () => {
+    setActivitiesLoading(true);
+    setIntegrations((prev) => ({
+      strava: { ...prev.strava, syncing: true, error: undefined },
+      garmin: { ...prev.garmin, syncing: true, error: undefined }
+    }));
+    try {
+      const [stravaResult, garminResult] = await Promise.allSettled([
+        fetchStravaActivities(),
+        fetchGarminActivities()
+      ]);
+      const stravaActivities =
+        stravaResult.status === "fulfilled" ? stravaResult.value : [];
+      const garminActivities =
+        garminResult.status === "fulfilled" ? garminResult.value : [];
+      const nextActivities = [...stravaActivities, ...garminActivities].sort(
+        (a, b) => (a.date < b.date ? 1 : -1)
+      );
+      setActivities(nextActivities);
       setIntegrations((prev) => ({
-        strava: { ...prev.strava, syncing: true, error: undefined },
-        garmin: { ...prev.garmin, syncing: true, error: undefined }
+        strava: {
+          ...prev.strava,
+          syncing: false,
+          error:
+            stravaResult.status === "rejected"
+              ? "Unable to sync Strava activities."
+              : prev.strava.error,
+          lastSync: stravaResult.status === "fulfilled"
+            ? new Date().toISOString()
+            : prev.strava.lastSync
+        },
+        garmin: {
+          ...prev.garmin,
+          syncing: false,
+          error:
+            garminResult.status === "rejected"
+              ? "Unable to sync Garmin activities."
+              : prev.garmin.error,
+          lastSync: garminResult.status === "fulfilled"
+            ? new Date().toISOString()
+            : prev.garmin.lastSync
+        }
       }));
-      try {
-        const [stravaResult, garminResult] = await Promise.allSettled([
-          fetchStravaActivities(),
-          fetchGarminActivities()
-        ]);
-        const stravaActivities =
-          stravaResult.status === "fulfilled" ? stravaResult.value : [];
-        const garminActivities =
-          garminResult.status === "fulfilled" ? garminResult.value : [];
-        const nextActivities = [...stravaActivities, ...garminActivities].sort(
-          (a, b) => (a.date < b.date ? 1 : -1)
-        );
-        setActivities(nextActivities);
-        setIntegrations((prev) => ({
-          strava: {
-            ...prev.strava,
-            syncing: false,
-            error:
-              stravaResult.status === "rejected"
-                ? "Unable to sync Strava activities."
-                : prev.strava.error,
-            lastSync: stravaResult.status === "fulfilled"
-              ? new Date().toISOString()
-              : prev.strava.lastSync
-          },
-          garmin: {
-            ...prev.garmin,
-            syncing: false,
-            error:
-              garminResult.status === "rejected"
-                ? "Unable to sync Garmin activities."
-                : prev.garmin.error,
-            lastSync: garminResult.status === "fulfilled"
-              ? new Date().toISOString()
-              : prev.garmin.lastSync
-          }
-        }));
-      } catch (error) {
-        console.error("Failed to load activities", error);
-        setIntegrations((prev) => ({
-          strava: { ...prev.strava, syncing: false, error: prev.strava.error ?? "Unable to sync Strava activities." },
-          garmin: { ...prev.garmin, syncing: false, error: prev.garmin.error ?? "Unable to sync Garmin activities." }
-        }));
-      }
-    };
+    } catch (error) {
+      console.error("Failed to load activities", error);
+      setIntegrations((prev) => ({
+        strava: { ...prev.strava, syncing: false, error: prev.strava.error ?? "Unable to sync Strava activities." },
+        garmin: { ...prev.garmin, syncing: false, error: prev.garmin.error ?? "Unable to sync Garmin activities." }
+      }));
+    } finally {
+      setActivitiesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
     loadActivities();
-  }, [user.stravaConnected, user.garminConnected]);
+  }, [user.stravaConnected, user.garminConnected, loadActivities]);
+
+  const handleRegeneratePlan = useCallback(async () => {
+    if (apiStatus.state !== "valid") {
+      setPlanError("Add a valid Gemini API key to regenerate a plan.");
+      return;
+    }
+    setPlanLoading(true);
+    setPlanError(undefined);
+    try {
+      const newPlan = await generateTrainingPlan(16, 'Advanced', new Date().toISOString().split('T')[0]);
+      setPlan(newPlan);
+    } catch (error) {
+      console.error("Failed to regenerate training plan", error);
+      setPlanError("We couldn't regenerate the plan. Please try again.");
+    } finally {
+      setPlanLoading(false);
+    }
+  }, [apiStatus.state]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -336,15 +371,24 @@ const App: React.FC = () => {
             recentActivities={activities} 
             nextWorkout={nextWorkout} 
             integrations={integrations}
+            activitiesLoading={activitiesLoading}
+            planLoading={planLoading}
+            planError={planError}
+            onRefreshActivities={loadActivities}
+            onRegeneratePlan={handleRegeneratePlan}
         />
       )}
       
-      {currentView === 'training' && plan && (
+      {currentView === 'training' && (
         <TrainingView 
             plan={plan} 
-            onUpdatePlan={setPlan} 
             activities={activities}
             integrations={integrations}
+            activitiesLoading={activitiesLoading}
+            planLoading={planLoading}
+            planError={planError}
+            onRefreshActivities={loadActivities}
+            onRegeneratePlan={handleRegeneratePlan}
         />
       )}
       

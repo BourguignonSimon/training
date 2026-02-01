@@ -1,38 +1,66 @@
 import React, { useState } from 'react';
 import { WeeklyPlan, TrainingSession, Activity } from '../types';
-import { Check, MessageSquare, Plus, RefreshCw, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react';
+import { MessageSquare, Plus, RefreshCw, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react';
 import { getCoachAdvice } from '../services/gemini';
 
 interface TrainingViewProps {
-  plan: WeeklyPlan;
-  onUpdatePlan: (plan: WeeklyPlan) => void;
+  plan: WeeklyPlan | null;
   activities: Activity[];
   integrations: {
     strava: { connected: boolean; syncing: boolean; error?: string };
     garmin: { connected: boolean; syncing: boolean; error?: string };
   };
+  activitiesLoading: boolean;
+  planLoading: boolean;
+  planError?: string;
+  onRefreshActivities: () => void;
+  onRegeneratePlan: () => void;
 }
 
-export const TrainingView: React.FC<TrainingViewProps> = ({ plan, onUpdatePlan, activities, integrations }) => {
+export const TrainingView: React.FC<TrainingViewProps> = ({
+  plan,
+  activities,
+  integrations,
+  activitiesLoading,
+  planLoading,
+  planError,
+  onRefreshActivities,
+  onRegeneratePlan
+}) => {
   const [selectedDay, setSelectedDay] = useState<TrainingSession | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [chatHistory, setChatHistory] = useState<{role: 'user' | 'coach', text: string}[]>([]);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [lastPrompt, setLastPrompt] = useState<string | null>(null);
+
+  const sendCoachMessage = async (message: string) => {
+    if (!plan) {
+      return;
+    }
+    setIsLoadingChat(true);
+    setChatError(null);
+    setLastPrompt(message);
+    try {
+      const context = `Current plan focus: ${plan.focus}. Selected day: ${selectedDay ? selectedDay.day : 'None'}.`;
+      const response = await getCoachAdvice(message, context);
+      setChatHistory(prev => [...prev, { role: 'coach', text: response }]);
+    } catch (error) {
+      console.error("Failed to fetch coach advice", error);
+      setChatError("We couldn't reach Coach Gemini. Check your connection and try again.");
+    } finally {
+      setIsLoadingChat(false);
+    }
+  };
 
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim()) return;
+    if (!chatInput.trim() || !plan) return;
 
     const userMsg = chatInput;
     setChatInput("");
     setChatHistory(prev => [...prev, { role: 'user', text: userMsg }]);
-    setIsLoadingChat(true);
-
-    const context = `Current plan focus: ${plan.focus}. Selected day: ${selectedDay ? selectedDay.day : 'None'}.`;
-    const response = await getCoachAdvice(userMsg, context);
-
-    setIsLoadingChat(false);
-    setChatHistory(prev => [...prev, { role: 'coach', text: response }]);
+    await sendCoachMessage(userMsg);
   };
 
   const getStatusColor = (target: number, actual: number) => {
@@ -46,6 +74,32 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ plan, onUpdatePlan, 
   const getMatchedActivity = (date: string) => {
       // Simple date matching, normally would check IDs or time ranges
       return activities.find(a => a.date === date);
+  }
+
+  if (planLoading || !plan) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-140px)]">
+        <div className="lg:col-span-2 flex flex-col space-y-4 h-full">
+          <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 animate-pulse">
+            <div className="h-5 w-40 bg-slate-800 rounded mb-2" />
+            <div className="h-3 w-32 bg-slate-800 rounded" />
+          </div>
+          <div className="flex-1 space-y-3 overflow-hidden">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-4 animate-pulse">
+                <div className="h-4 w-32 bg-slate-800 rounded mb-2" />
+                <div className="h-3 w-5/6 bg-slate-800 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 animate-pulse">
+          <div className="h-4 w-24 bg-slate-800 rounded mb-4" />
+          <div className="h-3 w-full bg-slate-800 rounded mb-2" />
+          <div className="h-3 w-3/4 bg-slate-800 rounded" />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -70,13 +124,44 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ plan, onUpdatePlan, 
                   ? "Syncing activities"
                   : "Activity sync idle"}
              </div>
-             <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 transition-colors">
+             <button
+                onClick={onRefreshActivities}
+                className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 transition-colors"
+                aria-label="Refresh activities"
+             >
                 <RefreshCw size={20} />
              </button>
           </div>
         </div>
 
+        {(planError || integrations.strava.error || integrations.garmin.error) && (
+          <div className="bg-orange-500/10 border border-orange-500/30 text-orange-200 text-sm rounded-xl p-3 flex items-start justify-between gap-4">
+            <div>
+              <p className="font-semibold">Sync warning</p>
+              <p className="text-xs text-orange-200/80">
+                {planError || integrations.strava.error || integrations.garmin.error}
+              </p>
+            </div>
+            <button
+              onClick={planError ? onRegeneratePlan : onRefreshActivities}
+              className="text-xs font-semibold text-orange-100 bg-orange-500/20 hover:bg-orange-500/30 px-3 py-1 rounded-full"
+            >
+              {planError ? "Retry plan" : "Retry sync"}
+            </button>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+          {activitiesLoading && activities.length === 0 && (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-4 animate-pulse">
+                  <div className="h-4 w-24 bg-slate-800 rounded mb-2" />
+                  <div className="h-3 w-3/4 bg-slate-800 rounded" />
+                </div>
+              ))}
+            </div>
+          )}
           {plan.sessions.map((session, idx) => {
             const matchedActivity = getMatchedActivity(session.date);
             const actualDist = matchedActivity ? matchedActivity.distance : 0;
@@ -208,6 +293,18 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ plan, onUpdatePlan, 
                              </div>
                         </div>
                     </div>
+                )}
+                {chatError && (
+                  <div className="bg-orange-500/10 border border-orange-500/30 text-orange-200 text-xs rounded-lg p-3 flex items-center justify-between gap-3">
+                    <span>{chatError}</span>
+                    <button
+                      type="button"
+                      onClick={() => lastPrompt && sendCoachMessage(lastPrompt)}
+                      className="text-orange-100 bg-orange-500/20 hover:bg-orange-500/30 px-3 py-1 rounded-full text-xs font-semibold"
+                    >
+                      Retry
+                    </button>
+                  </div>
                 )}
             </div>
 
