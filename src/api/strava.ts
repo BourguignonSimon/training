@@ -1,4 +1,4 @@
-import { Activity } from "../types";
+import { Activity } from "@/types";
 
 const STRAVA_API_BASE = "https://www.strava.com/api/v3";
 const STRAVA_AUTH_URL = "https://www.strava.com/oauth/authorize";

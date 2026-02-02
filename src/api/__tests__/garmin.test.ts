@@ -4,7 +4,7 @@ import {
   fetchGarminActivities,
   getGarminAuthUrl,
   getStoredGarminTokens
-} from '../garmin';
+} from '@/api/garmin';
 
 describe('garmin service', () => {
   beforeEach(() => {
