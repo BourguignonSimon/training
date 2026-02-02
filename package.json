@@ -1,39 +1,18 @@
 {
-  "name": "ultratrail-ai-coach",
+  "name": "ultratrail-ai-coach-monorepo",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "lint": "eslint .",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  },
-  "dependencies": {
-    "react": "^19.2.4",
-    "recharts": "^3.7.0",
-    "@google/genai": "^1.38.0",
-    "react-dom": "^19.2.4",
-    "lucide-react": "^0.563.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "@testing-library/jest-dom": "^6.8.0",
-    "@testing-library/react": "^16.3.0",
-    "eslint": "^9.36.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "jsdom": "^27.0.0",
-    "prettier": "^3.6.2",
-    "typescript-eslint": "^8.45.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0",
-    "vitest": "^3.2.4"
+    "dev": "npm run dev:client & npm run dev:server",
+    "dev:client": "npm run dev -w apps/client",
+    "dev:server": "npm run dev -w apps/server",
+    "build:client": "npm run build -w apps/client",
+    "build:server": "npm run build -w apps/server",
+    "test:client": "npm run test -w apps/client",
+    "test:server": "npm run test -w apps/server",
+    "test": "npm run test:client && npm run test:server",
+    "install:all": "npm install"
   }
 }
