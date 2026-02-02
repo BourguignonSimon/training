@@ -1,9 +1,11 @@
 import { Activity } from "../types";
 
 const STRAVA_API_BASE = "https://www.strava.com/api/v3";
-const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
 const STRAVA_AUTH_URL = "https://www.strava.com/oauth/authorize";
 const STRAVA_STORAGE_KEY = "stravaTokens";
+
+const getBackendUrl = () =>
+  import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 type StravaTokenPayload = {
   access_token: string;
@@ -59,19 +61,10 @@ export const clearStravaTokens = () => {
 };
 
 export const exchangeStravaToken = async (code: string) => {
-  const clientId = getEnv("VITE_STRAVA_CLIENT_ID");
-  const clientSecret = getEnv("VITE_STRAVA_CLIENT_SECRET");
-  const body = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    code,
-    grant_type: "authorization_code"
-  });
-
-  const response = await fetch(STRAVA_TOKEN_URL, {
+  const response = await fetch(`${getBackendUrl()}/api/auth/strava`, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code })
   });
 
   if (!response.ok) {
@@ -84,19 +77,10 @@ export const exchangeStravaToken = async (code: string) => {
 };
 
 export const refreshStravaToken = async (refreshToken: string) => {
-  const clientId = getEnv("VITE_STRAVA_CLIENT_ID");
-  const clientSecret = getEnv("VITE_STRAVA_CLIENT_SECRET");
-  const body = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    refresh_token: refreshToken,
-    grant_type: "refresh_token"
-  });
-
-  const response = await fetch(STRAVA_TOKEN_URL, {
+  const response = await fetch(`${getBackendUrl()}/api/auth/strava/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refreshToken })
   });
 
   if (!response.ok) {
