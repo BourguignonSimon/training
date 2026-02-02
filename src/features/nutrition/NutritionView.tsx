@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Meal, MealType, NutritionDay, NutritionPlanDay, PlannedMeal, isMealType, isPlannedMeal } from '../types';
-import { analyzeNutrition, generateNutritionPlan } from '../services/gemini';
+import { Meal, MealType, NutritionDay, NutritionPlanDay, PlannedMeal, isMealType, isPlannedMeal } from '@/types';
+import { analyzeNutrition, generateNutritionPlan } from '@/api/gemini';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { Plus, Loader2, Utensils, Edit2, Wand2 } from 'lucide-react';
 

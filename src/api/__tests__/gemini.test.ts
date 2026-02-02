@@ -8,7 +8,7 @@ describe('gemini service', () => {
   });
 
   it('returns the fallback training plan when API key is missing', async () => {
-    const { generateTrainingPlan } = await import('../gemini');
+    const { generateTrainingPlan } = await import('@/api/gemini');
 
     const plan = await generateTrainingPlan(8, 'Intermediate', '2024-01-01');
 
@@ -17,7 +17,7 @@ describe('gemini service', () => {
   });
 
   it('returns the fallback nutrition plan when API key is missing', async () => {
-    const { generateNutritionPlan } = await import('../gemini');
+    const { generateNutritionPlan } = await import('@/api/gemini');
 
     const plan = await generateNutritionPlan('Base Training');
 

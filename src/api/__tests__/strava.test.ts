@@ -4,7 +4,7 @@ import {
   fetchStravaActivities,
   getStoredStravaTokens,
   getStravaAuthUrl
-} from '../strava';
+} from '@/api/strava';
 
 describe('strava service', () => {
   beforeEach(() => {

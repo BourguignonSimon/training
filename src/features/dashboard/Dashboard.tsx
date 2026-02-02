@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, TrainingSession } from '../types';
+import { Activity, TrainingSession } from '@/types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { TrendingUp, Mountain, Clock, CheckCircle2, AlertCircle, LucideIcon } from 'lucide-react';
 

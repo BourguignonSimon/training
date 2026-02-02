@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout } from './components/Layout';
-import { Dashboard } from './components/Dashboard';
-import { TrainingView } from './components/TrainingView';
-import { NutritionView } from './components/NutritionView';
-import { SettingsView } from './components/SettingsView';
-import { ViewState, WeeklyPlan, NutritionDay, Activity, UserProfile, NutritionPlanDay, Meal, isMeal } from './types';
-import { generateTrainingPlan, getFallbackTrainingPlan, validateGeminiApiKey } from './services/gemini';
-import { clearStravaTokens, exchangeStravaToken, fetchStravaActivities, getStoredStravaTokens, getStravaAuthUrl } from './services/strava';
-import { clearGarminTokens, exchangeGarminToken, fetchGarminActivities, getStoredGarminTokens, getGarminAuthUrl } from './services/garmin';
+import { Layout } from '@/layouts/MainLayout';
+import { Dashboard } from '@/features/dashboard/Dashboard';
+import { TrainingView } from '@/features/training/TrainingView';
+import { NutritionView } from '@/features/nutrition/NutritionView';
+import { SettingsView } from '@/features/settings/SettingsView';
+import { ViewState, WeeklyPlan, NutritionDay, Activity, UserProfile, NutritionPlanDay, Meal, isMeal } from '@/types';
+import { generateTrainingPlan, getFallbackTrainingPlan, validateGeminiApiKey } from '@/api/gemini';
+import { clearStravaTokens, exchangeStravaToken, fetchStravaActivities, getStoredStravaTokens, getStravaAuthUrl } from '@/api/strava';
+import { clearGarminTokens, exchangeGarminToken, fetchGarminActivities, getStoredGarminTokens, getGarminAuthUrl } from '@/api/garmin';
 
 const INITIAL_USER: UserProfile = {
   name: "Trail Runner",

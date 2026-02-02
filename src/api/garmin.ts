@@ -1,4 +1,4 @@
-import { Activity } from "../types";
+import { Activity } from "@/types";
 
 const GARMIN_STORAGE_KEY = "garminTokens";
 

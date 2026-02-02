@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { WeeklyPlan, Meal, NutritionPlanDay, isMealInput } from "../types";
+import { WeeklyPlan, Meal, NutritionPlanDay, isMealInput } from "@/types";
 
 const rawApiKey = import.meta.env.VITE_GEMINI_API_KEY ?? "";
 const apiKey = rawApiKey.trim();

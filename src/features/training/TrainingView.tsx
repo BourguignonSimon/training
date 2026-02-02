@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { WeeklyPlan, TrainingSession, Activity } from '../types';
+import { WeeklyPlan, TrainingSession, Activity } from '@/types';
 import { MessageSquare, Plus, RefreshCw, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react';
-import { getCoachAdvice } from '../services/gemini';
+import { getCoachAdvice } from '@/api/gemini';
 
 interface TrainingViewProps {
   plan: WeeklyPlan | null;

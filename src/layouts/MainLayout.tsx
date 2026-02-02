@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import { LayoutDashboard, Calendar, Utensils, Settings, Activity, LucideIcon } from 'lucide-react';
-import { ViewState } from '../types';
+import { ViewState } from '@/types';
 
 interface LayoutProps {
   children: ReactNode;

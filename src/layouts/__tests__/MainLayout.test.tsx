@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { Layout } from '../Layout';
+import { Layout } from '@/layouts/MainLayout';
 
 const renderLayout = () => {
   const onNavigate = vi.fn();
@@ -20,7 +20,8 @@ describe('Layout', () => {
   it('renders navigation and notice content', () => {
     renderLayout();
 
-    expect(screen.getByText('UltraCoach')).toBeInTheDocument();
+    // UltraCoach appears in both desktop sidebar and mobile header
+    expect(screen.getAllByText('UltraCoach').length).toBeGreaterThan(0);
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Training Plan')).toBeInTheDocument();
     expect(screen.getByText('Reminder')).toBeInTheDocument();
