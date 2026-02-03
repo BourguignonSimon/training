@@ -1,18 +1,23 @@
 {
   "name": "ultratrail-ai-coach-monorepo",
+  "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev:client & npm run dev:server",
-    "dev:client": "npm run dev -w apps/client",
-    "dev:server": "npm run dev -w apps/server",
-    "build:client": "npm run build -w apps/client",
-    "build:server": "npm run build -w apps/server",
-    "test:client": "npm run test -w apps/client",
-    "test:server": "npm run test -w apps/server",
-    "test": "npm run test:client && npm run test:server",
-    "install:all": "npm install"
+    "dev:client": "npm run dev --workspace=apps/client",
+    "dev:server": "npm run dev --workspace=apps/server",
+    "dev:all": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.2.2",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5"
   }
 }
